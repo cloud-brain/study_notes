@@ -414,10 +414,6 @@ str_extract('my email is laokaij@qq.com','\\w+@\\w+\\.\\w+')
 
 `library(ROI)`提供了一个稳定的应用接口。
 
-`OP(objective, constraints = NULL, types = NULL, bounds = NULL,maximum = FALSE)`用于构建问题。
-
-`solve(op)`求解
-
 ----------------------
 
 `object`目标函数
@@ -431,6 +427,8 @@ str_extract('my email is laokaij@qq.com','\\w+@\\w+\\.\\w+')
 ----------------------------
 
 `bounds`求解范围
+
+注意默认的下界为0
 
 `bounds(op);bounds(op)<-value`可以提取并修改原范围
 
@@ -456,7 +454,13 @@ str_extract('my email is laokaij@qq.com','\\w+@\\w+\\.\\w+')
 对于约束条件可以使用`rbind`进行合并。
 
 -------------------------------
-匹配可行优化器
+构建问题
+
+`OP(objective, constraints = NULL, types = NULL, bounds = NULL,maximum = FALSE)`用于构建问题。
+
+---------------------
+
+匹配可行优化器，不匹配时会自动按顺序调用可用优化器。
 
 `ROI_applicable_solvers(op)`当前可用
 
@@ -471,9 +475,32 @@ str_extract('my email is laokaij@qq.com','\\w+@\\w+\\.\\w+')
 
 ### 最优规划-CVXR
 
+注意CVXP仅支持凸规划问题。
+
 本质上通过CVXR能够实现的规划通过ROI重新构造实现，ROI胜在支持的优化器数量，CVXR胜在构造简便。
 
+```R
+cov_m <- matrix(c(1, 0.4, 0.4, 1), ncol = 2)
+## 变量定义
+x <- Variable(2)
+## 设定目标
+objective <- Minimize(quad_form(x, cov_m))
+## 设定约束
+constraint <- sum_entries(x) == 1
+## 设计问题
+problem <- Problem(objective, constraints = list(constraint))
+## 求解
+result <- psolve(problem, solver = "SCS")
+reusult$getValue(x)
+```
 
+CVXR提供了大量函数简化构造。
+
+例如`sum_entries`：求和,`sum_squares`：求平方和，`quad_form`：二次项
+
+同时支持其他运算：
+
+例如`sum_largest`：求最大前n个数值和,`sum_smallest`:求最小前n个数值和。`abs`：整型运算。
 
 # 运行效率
 
@@ -485,12 +512,14 @@ str_extract('my email is laokaij@qq.com','\\w+@\\w+\\.\\w+')
 
 ## 效率评价
 
-`library(microbenchmark)`，主要用于不同代码间的比较
+`library(microbenchmark)`，主要用于不同代码间的比较。
+
 `library(profvis)`，用于分析代码块的瓶颈。该包已经集成在RStudio，使用profile中工程即可。
 
-## 并行
+### 并行
 
-####parallel
+#### parallel
+
 R自带的并行包为`parallel`。该包继承于`snow`和`multicore`。
 
 继承snow的主要cluster的方式并行，实际上开启了多个Rscript。采用能够兼容sock和Rmpi多种通信方式。但是传递变量时采用的是`serialize()`和`unserialize()`这一组函数，因此不兼容的都将无法运行。如`Rcpp`。
@@ -503,9 +532,13 @@ R自带的并行包为`parallel`。该包继承于`snow`和`multicore`。
 
 ------------------------------------
 **集群建立**
+
 parallel继承了snow建立集群的方式。
-`cl = makecluster(spec,type)`
-`stopcluster(cl)`
+
+`cl = makecluster(spec,type)``
+
+``stopcluster(cl)`
+
 - `spec`可以是数字，表示集群数量；或字符向量，表示各个集群的名字。
 - `type`,windows下默认`PSOCK`，否则为`FORK`。前者对应多cluster，后者本质为多核运行的内存共享。
 
@@ -513,13 +546,17 @@ parallel继承了snow建立集群的方式。
 
 -----------------------------
 **并行函数**
+
 `parLapply(cl, x, fun)`
+
 `mclapply(x, fun)`
 
 对应lapply，其中mclapply采用multicore的形式，即用即销。而parLapply在原snow的基础上提供了兼容fork的模式。
 
 对于par系列的还有
+
 `parApply`对于Apply,`parRapply`对应matrix行的运算。
+
 实际上parallel中还提供了snow中原始的cluser系列（如clusterApply等）的继承，但是**运行效率低于par系列**。
 
 
@@ -527,39 +564,43 @@ parallel继承了snow建立集群的方式。
 
 ---------------------------
 **集群调整**
+
 parellal提供了更多继承于snow的函数。
+
 `clusterEvalQ(cl, expr)`expr为程序语句，但不兼容函数。
+
 `clusterCall(cl, fun)`运行函数。
 
 `clusterExport(cl, "xx")`传入变量。
 
--------------------------------
-**随机数**
+------------------------
+
+**随机数** 
+
 对于集群模式影响更小，但是对于fork模式由于共享内存使得随机结果不确定。
 
-集群提供的方案是
-`clusterSetRNGStream(cl, 221)`
-fork模式
-`RNGkind(kind)` kind常见为"L'Ecuyer-CMRG"
-####foreach
+因此设置随机数的方法为 `clusterSetRNGStream(cl, 221)`
+
+#### foreach
+
+不推荐，主要是效率不如parallel，简化程度有限。
+
 `foreach`包结合`doparallel`等包提供了一个较为简单的并行解决方案，而不用过多考虑集群中包加载和变量的输入问题。`%do%`和`%dopar%`提供是否并行两种模式。
 
-foreach会自动加载当前环境的变量（该加载是指若集群中被调用时，因此不会增加过量的负担），但不会加载父环境变量，使用`.export = c('a','b')`加载。
-同样，使用`.packages = c('dplyr')`加载包，需要注意的是当线程不关闭时加载过的包和变量会一直保留。
-其他参数
-`.combine`包括'+'等，实际上可以用任何自己构建的函数去组合结果
-`.multicombine = T` 如果.combine的函数可以用于多变量如rbind，则选择T
-`.inorder = T`，默认T，结果是否需要按输入排序
+foreach会自动加载当前环境的变量（该加载是指若集群中被调用时，因此不会增加过量的负担），但不会加载父环境变量。使用`.export = c('a','b')`加载父环境变量；使用`.packages = c('dplyr')`加载包，需要注意的是当线程不关闭时加载过的包和变量会一直保留。
+
+其他参数如下：
+
+- `.combine`包括'+'等，实际上可以用任何自己构建的函数去组合结果
+- `.multicombine = T` 如果.combine的函数可以用于多变量如rbind，则选择T
+- `.inorder = T`，默认T，结果是否需要按输入排序
 
 但是运行效率上，foreach %do%相对于lapply与foreach %dopar%相对于parLapply都明显更慢。
 ``` r
 library(foreach)
 library(doParallel)
 
-fun <- function(x)
-{
-  mean(rnorm(x))
-}
+fun <- function(x) mean(rnorm(x))
 
 system.time(mapply(fun, 1:20000))
 # user  system elapsed 
@@ -587,18 +628,27 @@ system.time(foreach(i = 1:20000, .combine = 'c') %dopar% fun(i))
 stopCluster(cl)
 ```
 
-####multidplyr
+#### multidplyr
+
+该包没有上cran，需要通过`devtools::install_github("tidyverse/multidplyr")`安装。
+
 hadlay大神教，基于`parallel`，提供了par_tbl类型匹配dpylr中`group_by`,`filter`,`mutate`,`summarise`,`do`。
-建立cluster
-`cl <- create_cluster`
-复制入变量
-`a <- 10;cl %>% cluster_copy(a)`或者`cl %>% cluster_assign_value('a', 10)`
-加载包
-`cl %>%cluster_library(c("magrittr", "stats"))`
-运行
-`cl %>%cluster_eval(fun())`
-数据切分
-`flights %>% partition(dest, cluster = cluster)`当cluster不存在的时候会调用默认cluster，切分后的partition可以作为cl被上述函数直接调用。
+
+```R
+## 建立3个cluster
+cl <- new_cluster(3)
+## 复制入变量
+a <- 10;cl %>% cluster_copy(a) ## cl %>% cluster_assign_value('a', 10)
+## 加载包
+cl %>% cluster_library(c("magrittr", "stats"))
+## 运行
+cl %>% cluster_eval(fun())
+## 数据切分，先group能保证每组内的运算相同
+flights %>% group_by(dest) %>% partition(dest, cluster = cluster)
+
+
+
+```
 
 同时函数兼容dplyr中操作，自动进行并行。
 
