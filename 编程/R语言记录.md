@@ -516,9 +516,9 @@ CVXR提供了大量函数简化构造。
 
 `library(profvis)`，用于分析代码块的瓶颈。该包已经集成在RStudio，使用profile中工程即可。
 
-### 并行
+## 并行
 
-#### parallel
+### parallel
 
 R自带的并行包为`parallel`。该包继承于`snow`和`multicore`。
 
@@ -581,54 +581,27 @@ parellal提供了更多继承于snow的函数。
 
 因此设置随机数的方法为 `clusterSetRNGStream(cl, 221)`
 
-#### foreach
+### parallelMap
 
-不推荐，主要是效率不如parallel，简化程度有限。
+在paralle上开发的包。
 
-`foreach`包结合`doparallel`等包提供了一个较为简单的并行解决方案，而不用过多考虑集群中包加载和变量的输入问题。`%do%`和`%dopar%`提供是否并行两种模式。
-
-foreach会自动加载当前环境的变量（该加载是指若集群中被调用时，因此不会增加过量的负担），但不会加载父环境变量。使用`.export = c('a','b')`加载父环境变量；使用`.packages = c('dplyr')`加载包，需要注意的是当线程不关闭时加载过的包和变量会一直保留。
-
-其他参数如下：
-
-- `.combine`包括'+'等，实际上可以用任何自己构建的函数去组合结果
-- `.multicombine = T` 如果.combine的函数可以用于多变量如rbind，则选择T
-- `.inorder = T`，默认T，结果是否需要按输入排序
-
-但是运行效率上，foreach %do%相对于lapply与foreach %dopar%相对于parLapply都明显更慢。
-``` r
-library(foreach)
-library(doParallel)
-
-fun <- function(x) mean(rnorm(x))
-
-system.time(mapply(fun, 1:20000))
-# user  system elapsed 
-# 21.44    0.17   21.76 
-system.time(foreach(i = 1:20000, .combine = 'c') %do% fun(i))
-# user  system elapsed 
-# 27.83    0.05   28.10 
-cl <- makeCluster(3)
-
-clusterSetRNGStream(cl, 221)
-system.time(parLapply(cl, 1:20000, fun) %>% do.call('c',.))
-# user  system elapsed 
-# 0.00    0.00   13.53
-
-clusterSetRNGStream(cl, 221)
-system.time(parLapplyLB(cl, 1:20000, fun) %>% do.call('c',.))
-# user  system elapsed 
-# 0.05    0.01   13.83
-
-clusterSetRNGStream(cl, 221)
-system.time(foreach(i = 1:20000, .combine = 'c') %dopar% fun(i))
-# user  system elapsed 
-# 27.97    0.03   28.22
-
-stopCluster(cl)
+```R
+##建立cluster
+parallelStartSocket(2)
+##传入变量
+z <- 1
+parallelExport('z')
+##传入包
+parallelLibrary('tidyverse')
+##运行
+fun <- function(x, y, z) 2*x+y + z
+tibble(x = 1:1000, y = 1:1000/1000) %>% mutate(zz = parallelMap(fun, x, y, z)) %>% unnest(zz)
+parallelStop()
 ```
 
-#### multidplyr
+注意单次只能传入一个变量和加载一个包。
+
+### multidplyr
 
 该包没有上cran，需要通过`devtools::install_github("tidyverse/multidplyr")`安装。
 
@@ -643,24 +616,24 @@ a <- 10;cl %>% cluster_copy(a) ## cl %>% cluster_assign_value('a', 10)
 cl %>% cluster_library(c("magrittr", "stats"))
 ## 运行
 cl %>% cluster_eval(fun())
-## 数据切分，先group能保证每组内的运算相同
+## 数据切分，先group能保证每组内的运算相同，因此注意group的使用
 flights %>% group_by(dest) %>% partition(dest, cluster = cluster)
-
-
-
 ```
 
 同时函数兼容dplyr中操作，自动进行并行。
 
-当变量删除后，gc自动清除相关内容。
+当变量删除后，gc自动清除相关内容。但是重复使用partition放入单个变量时，发现内存消耗不断增加，建议及时消除cluster。
+
+在多核服务器上最多支持6个线程，原因不明。
 
 ## Rcpp
 
 从结果来看，进行数值运算时还是Rcpp的运算速度最快。
+
 需要先下载安装Rtools，尽量减少路径更改，会有各类不知名问题。
 
-依赖于`library(Rcpp)`
-主要函数即`cppFunction`和`sourceCpp`
+依赖于`library(Rcpp)`，主要函数即`cppFunction`和`sourceCpp`
+
 ```r
 library(Rcpp)
 
@@ -670,7 +643,6 @@ fun <- function(x)
   x <- matrix(rbinom(100 * times,1,0.5), nrow = times)
   mean(apply(x, 2, function(x) min(which(x[-1] * x[-100]==1))))
 }
-
 
 cppFunction(
   'int fun1()
@@ -687,16 +659,6 @@ cppFunction(
   }')
 
 sourceCpp("C:\\Users\\cloud\\Desktop\\fun2.cpp")
-
-system.time(mean(replicate(1000,fun())))
-## 用户  系统  流逝 
-## 16.20  0.22 16.58 
-system.time(mean(replicate(1000000,fun1())))
-## 用户 系统 流逝 
-## 3.23 0.00 3.25
-system.time(mean(replicate(1000000,fun2())))
-## 用户 系统 流逝 
-## 2.94 0.00 2.95
 
 library(rbenchmark)
 benchmark(mean(replicate(100,fun())),mean(replicate(100000,fun1())),mean(replicate(100000,fun2())))
@@ -728,24 +690,24 @@ int fun2()
 ```
 使用时返回向量或数据集时采用SEXP对象。
 
-##openblas
+## openblas
+
 该开源项目在底层的矩阵运算上能够大量的提高R的运算效率。
 替换的是底层包中使用libopenblas.dll替换Rblas.dll文件。其他缺失文件网上索引即可。
 
-##debug
-###问题构建
-需要能够复现的数据，当数据较为麻烦时可以使用dput和dget。
-有时可以直接适用dput拆解数据查看细节差异。
+# 开发包
 
-##开发包
 基于`devtools`。hadley大神教。
+
 RStudio中包括相关方法。
+
 点击file -> new project -> new Directory -> R pacakge
+
 然后将.R文件放入。
 
 -------------------------
 编辑DESCRIPTION
-```
+```R
 Package: backtest
 Type: Package
 Title: back test for stock acount
@@ -763,9 +725,9 @@ Imports:
 ```
 
 ------------------
-编辑函数文件，函数本身无问题，但由于需要提供注释，因此依赖于`roxygen2`，通过#'作为标识符号。
+编辑函数文件
 
-```
+```R
  #' hello world
  #'
  #' hello word for n times
@@ -787,27 +749,22 @@ hello_world <- function(times = 1)
 	'hello, world' %>%　rep(5)
 }
 ```
-@@title
-@description
-@details
-按顺序出现，可以省略
-@param 输入变量
-@examples 表示例子
+依赖`roxygen2`，通过#'作为标识符号，在`devtool`中通过`document()`输出。提供说明文档的多种标识：
 
-@@export表示输出改函数进入namespace，如果不包括export则函数可在内部调用，但无法使用包的人调用。
-
-@@import表示需要加载的包。需要说明的是，加载仅表示在该包内部能够调用，在函数外部使用时仍需要加载函数。
-另为了能够同时下载其他的包，需要通过`use_package('dplyr')`形式加入到DESCRIPTION中。
-
-对于特殊的函数形式，如R6，应设置
-```
-#' @docType class
-#' @importFrom R6 R6Class
-```
+- title：标题
+- description：函数描述
+- details：函数细节
+- param：输入参数
+- examples：例子，注意添加\dontrun，否则构建包时检验。
+- export：输出改函数进入namespace，如果不包括export则函数可在内部调用，但无法使用包的人调用。
+- import：需要加载的包。需要说明的是，加载仅表示在该包内部能够调用，在函数外部使用时仍需要加载函。
+- importFrom：加载特定函数，如 `@importFrom R6 R6Class`
+- docType：设置文件类型，如R6的结构，应当设置类型为`class`
+- name：统一文档名称
 
 -----------------------
 编辑包文档和数据文档。
-```
+```R
 #' equal weight index
 #'
 #' the index change stock the first business day of each month
@@ -824,7 +781,7 @@ hello_world <- function(times = 1)
 NULL
 ```
 
-use_data(x) 加载数据到包中
+R6的编辑方式
 
 ```
 #' make a stock acount for back test
@@ -838,14 +795,20 @@ NULL
 ```
 通常在该文件中加载所有包
 
-可以看到特殊的标识为
-`@docType data/package用于表示文档类型
-`@name 用于表示文档的名字
-
 ------------
-document()能够重新生成文档
-load_all()能够在项目结构下载入当前编辑包的所有函数，尝试运行
+**构建函数**
 
-check()检验包中是否有问题
-build()建立包，build(binary = T)为二进制包，但系统依赖
+`load_all()`能够在项目结构下载入当前编辑包的所有函数，尝试运行
+
+`check()`检验包中是否有问题，build时会自动检验
+
+`build()`建立包，build(binary = T)为二进制包，但系统依赖
+
+# 其他
+
+## debug
+
+问题构建时，需要能够复现的数据，当数据较为麻烦时可以使用dput和dget。
+
+有时可以直接适用dput拆解数据查看细节差异。
 
