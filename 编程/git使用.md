@@ -25,6 +25,8 @@
 
 `git check [hash] [file]`可以回滚文件到某一版本。
 
+`git checkout .`即退回到最新版本
+
 ## 分支及合并
 
 `git branch [branch name]`能新建的分支。`git checkout -b [branch name]`能建立切换并新的分支。
