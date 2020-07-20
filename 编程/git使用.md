@@ -43,4 +43,14 @@
 
 - 对于服务器上的分支，需要通过`git push [remote name] :[branch name]`删除
 
+# github相关
 
+## ssh
+
+`ssh-keygen -t rsa -C 邮箱`
+
+用于生成新的ssh码。
+
+`ssh -T git@github.com`
+
+验证是否联通
