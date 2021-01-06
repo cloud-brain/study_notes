@@ -41,6 +41,19 @@
 
 - 对于服务器上的分支，需要通过`git push [remote name] :[branch name]`删除
 
+
 # 冲突解决
 
 pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，采用`git pop stash`会自动合并。
+
+# github相关
+
+## ssh
+
+`ssh-keygen -t rsa -C 邮箱`
+
+用于生成新的ssh码。
+
+`ssh -T git@github.com`
+
+验证是否联通
