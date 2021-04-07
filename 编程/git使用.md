@@ -44,7 +44,7 @@
 
 # 冲突解决
 
-pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，采用`git pop stash`会自动合并。
+pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，采用`git stash pop`会自动合并。
 
 # github相关
 
@@ -57,3 +57,21 @@ pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，�
 `ssh -T git@github.com`
 
 验证是否联通
+
+## IP调整
+
+有事出现无法登录的情况。需要调整host的IP。
+
+IP查询网址：[ipaddress.com](https://www.ipaddress.com/)
+
+查询github.com 和 github.global.ssl.fastly.net
+
+在路径`C:\Windows\System32\drivers\etc`下的`host`文件中添加
+
+```
+140.82.112.4 github.com
+199.232.69.194 github.global.ssl.fastly.net
+```
+
+在cmd中输入`ipconfig /flushdns`更新
+
