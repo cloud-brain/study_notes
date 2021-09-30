@@ -21,7 +21,7 @@
 
 采用`git log`可以查看历史文件。`git log -- [file]`可以查看单一文件的历史记录。`git log -2`能查看最近2个记录
 
-`git check [hash] [file]`可以回滚文件到某一版本。
+`git checkout [hash] [file]`可以回滚文件到某一版本。
 
 `git checkout .`即退回到最新版本
 
