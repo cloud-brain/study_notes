@@ -46,9 +46,9 @@
 
 pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，采用`git stash pop`会自动合并。
 
-# github相关
+# github连接
 
-## ssh
+## ssh模式
 
 `ssh-keygen -t rsa -C 邮箱`
 
@@ -57,6 +57,14 @@ pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，�
 `ssh -T git@github.com`
 
 验证是否联通
+
+## 帐号密码模式
+
+需要在setting-developer setting中设置token。
+
+`git config --global credential.helper store`用于记录密码
+
+
 
 ## IP调整
 
