@@ -46,9 +46,15 @@
 
 pull远程仓库发生冲突时，采用`git stash`暂存，然后`git pull`，采用`git stash pop`会自动合并。
 
+# 类型忽略
+
+git bash 中 `touch .gitignore` 建立.gitignore文件，填写对应类型即可。需要注意采用sublime编辑，而不要使用txt，会受到windows字符集影响。
+
 # github连接
 
 ## ssh模式
+
+ssh对应的是git@github.com的连接模式
 
 `ssh-keygen -t rsa -C 邮箱`
 
